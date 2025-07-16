@@ -1,0 +1,14 @@
+tags:
+  owner: "sentinel Technology"
+  team: "sentinel Team"
+  environment: "development"
+  project: "sentinel"
+  create_by: "Terraform"
+  cloud_provider: "aws"
+  confidentiality: "internal"
+  costcenter: "dev-sentinel-eng"
+
+s3:
+  aws_region_main: "us-east-1"
+  aws_region_backup: "us-east-2"
+  force_destroy: false
