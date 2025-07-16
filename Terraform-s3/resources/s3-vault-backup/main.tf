@@ -1,7 +1,7 @@
 locals {
   env = merge(
     yamldecode(file("${path.module}/../../environments/region.yaml")).alias,
-    yamldecode(file("${path.module}/../../environments/webforx.yaml"))
+    yamldecode(file("${path.module}/../../environments/sentinel.yaml"))
   )
 }
 
@@ -14,11 +14,11 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "development-webforx-stage-tf-state"
-    key            = "webforx/s3-vault-backup/terraform.tfstate"
+    bucket         = "development-sentinel-stage-tf-state"
+    key            = "sentinel/s3-vault-backup/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "development-webforx-stage-tf-state-lock"
+    dynamodb_table = "development-sentinel-stage-tf-state-lock"
   }
 }
 
