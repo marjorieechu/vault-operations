@@ -1,81 +1,81 @@
-name: CI/CD Automation
+# name: CI/CD Automation
 
-on:
-  schedule:
-    - cron: "0 2 * * 0" # Every Sunday at 02:00 AM UTC
-  workflow_dispatch: # Allows manual trigger from GitHub
+# on:
+#   schedule:
+#     - cron: "0 2 * * 0" # Every Sunday at 02:00 AM UTC
+#   workflow_dispatch: # Allows manual trigger from GitHub
 
-jobs:
-  automation:
-    runs-on: ["linux", "ubuntu", "docker", "shell", "backend"]
+# jobs:
+#   automation:
+#     runs-on: ["linux", "ubuntu", "docker", "shell", "backend"]
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v4
 
-      - name: Get Last 4 Digits of Commit SHA
-        run: |
-          echo "COMMIT_SHA_SHORT=$(git rev-parse --short=4 HEAD)" >> $GITHUB_ENV
+#       - name: Get Last 4 Digits of Commit SHA
+#         run: |
+#           echo "COMMIT_SHA_SHORT=$(git rev-parse --short=4 HEAD)" >> $GITHUB_ENV
 
-      - name: Setting up Vault
-        run: |
-          echo "COMMIT_SHA_SHORT=$(git rev-parse --short=4 HEAD)" >> $GITHUB_ENV
-          echo VAULT_USERNAME=${{ vars.VAULT_USERNAME  }} >> $GITHUB_ENV
-          echo VAULT_PASSWORD=${{ vars.VAULT_PASSWORD }} >> $GITHUB_ENV
-          echo VAULT_ADDR=${{ vars.VAULT_ADDR }} >> $GITHUB_ENV
-          echo "VAULT_TOKEN=$(vault login -method=userpass username="$VAULT_USERNAME" \
-              password="$VAULT_PASSWORD" -format=json | jq -r '.auth.client_token')" >> $GITHUB_ENV
+#       - name: Setting up Vault
+#         run: |
+#           echo "COMMIT_SHA_SHORT=$(git rev-parse --short=4 HEAD)" >> $GITHUB_ENV
+#           echo VAULT_USERNAME=${{ vars.VAULT_USERNAME  }} >> $GITHUB_ENV
+#           echo VAULT_PASSWORD=${{ vars.VAULT_PASSWORD }} >> $GITHUB_ENV
+#           echo VAULT_ADDR=${{ vars.VAULT_ADDR }} >> $GITHUB_ENV
+#           echo "VAULT_TOKEN=$(vault login -method=userpass username="$VAULT_USERNAME" \
+#               password="$VAULT_PASSWORD" -format=json | jq -r '.auth.client_token')" >> $GITHUB_ENV
 
-      - name: Stop Vault before backup
-        run: |
-          echo "Stopping Vault service..."
-          sudo systemctl stop vault
+#       - name: Stop Vault before backup
+#         run: |
+#           echo "Stopping Vault service..."
+#           sudo systemctl stop vault
 
-      - name: Run Vault Backups Script
-        run: |
-          chmod +x scripts/vault_backup.sh
-          ./scripts/vault_backup.sh
-        env:
-          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-          VAULT_DATA_DIR: /opt/vault/data
-          VAULT_TOKEN:
-            $(vault login -method=userpass username="$VAULT_USERNAME" \
-            password="$VAULT_PASSWORD" -format=json | jq -r '.auth.client_token')
+#       - name: Run Vault Backups Script
+#         run: |
+#           chmod +x scripts/vault_backup.sh
+#           ./scripts/vault_backup.sh
+#         env:
+#           VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+#           VAULT_DATA_DIR: /opt/vault/data
+#           VAULT_TOKEN:
+#             $(vault login -method=userpass username="$VAULT_USERNAME" \
+#             password="$VAULT_PASSWORD" -format=json | jq -r '.auth.client_token')
 
-      - name: Start Vault after backup
-        run: |
-          echo "Starting Vault service..."
-          sudo systemctl start vault
+#       - name: Start Vault after backup
+#         run: |
+#           echo "Starting Vault service..."
+#           sudo systemctl start vault
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v2
+#         with:
+#           aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      - name: Upload Vault file storage backup to S3 with SSE
-        run: |
-          set -e
-          bvault_backup_DIR="vault_backups"
-          LATEST_BACKUP=$(ls -td $bvault_backup_DIR/vault-backup-* | head -n 1)
+#       - name: Upload Vault file storage backup to S3 with SSE
+#         run: |
+#           set -e
+#           bvault_backup_DIR="vault_backups"
+#           LATEST_BACKUP=$(ls -td $bvault_backup_DIR/vault-backup-* | head -n 1)
 
-          TIMESTAMP=$(date +'%Y-%m-%d-%H%M%S')
-          ARCHIVE_NAME="vault-file-backup-${TIMESTAMP}.tar.gz"
-          ARCHIVE_PATH="${bvault_backup_DIR}/${ARCHIVE_NAME}"
-          DEST_PATH="s3://${{ secrets.S3_BACKUP_BUCKET }}/vault/bvault_backups/${ARCHIVE_NAME}"
+#           TIMESTAMP=$(date +'%Y-%m-%d-%H%M%S')
+#           ARCHIVE_NAME="vault-file-backup-${TIMESTAMP}.tar.gz"
+#           ARCHIVE_PATH="${bvault_backup_DIR}/${ARCHIVE_NAME}"
+#           DEST_PATH="s3://${{ secrets.S3_BACKUP_BUCKET }}/vault/bvault_backups/${ARCHIVE_NAME}"
 
-          echo "Creating archive from latest backup folder: $LATEST_BACKUP"
-          tar -czf "$ARCHIVE_PATH" -C "$LATEST_BACKUP" .
+#           echo "Creating archive from latest backup folder: $LATEST_BACKUP"
+#           tar -czf "$ARCHIVE_PATH" -C "$LATEST_BACKUP" .
 
-          echo "Uploading $ARCHIVE_PATH to $DEST_PATH"
-          if aws s3 cp "$ARCHIVE_PATH" "$DEST_PATH" --sse AES256; then
-            echo "Upload successful"
-          else
-            echo "Upload failed" >&2
-            curl -X POST -H 'Content-type: application/json' \
-              --data '{"text":"Vault file storage backup upload to S3 failed!"}' \
-              "${{ secrets.MATTERMOST_WEBHOOK_URL }}"
-            exit 1
-          fi
+#           echo "Uploading $ARCHIVE_PATH to $DEST_PATH"
+#           if aws s3 cp "$ARCHIVE_PATH" "$DEST_PATH" --sse AES256; then
+#             echo "Upload successful"
+#           else
+#             echo "Upload failed" >&2
+#             curl -X POST -H 'Content-type: application/json' \
+#               --data '{"text":"Vault file storage backup upload to S3 failed!"}' \
+#               "${{ secrets.MATTERMOST_WEBHOOK_URL }}"
+#             exit 1
+#           fi
