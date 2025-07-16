@@ -12,3 +12,7 @@ s3:
   aws_region_main: "us-east-1"
   aws_region_backup: "us-east-2"
   force_destroy: false
+
+s3-vault:
+  source_bucket: vault-backupS
+  destination_bucket: vault-replcation-bucket
